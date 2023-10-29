@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>chat</title>
+</head>
+<body>
+<span>服务器IP地址：</span> <span id="serverIp" th:text="${serverIp}"></span>
+<h2 id="headName" style="height: 5vh">昵称：</h2>
+<div id="container">
+    <div id="onlinePeoples">
+        <h4>在线用户列表:</h4>
+    </div>
+    <div id="chatDiv">
+        <span>当前聊天对象：</span>
+        <h3 id="currentChat"></h3>
+        <hr>
+        <span style="font-size: 15px">聊天记录框：</span>
+        <div id="chat-container" >
+
+        </div>
+
+        <textarea id="message-input" placeholder="在此输入您的消息"></textarea>
+        <br>
+        <button style="float: right" onclick="sendMessage()">发送</button>
+    </div>
+</div>
+</body>
+
+<script>
+    let socket = null//webSocket连接
+    var currentChatPartner = null //当前聊天的用户名
+    let userName = prompt('请输入你的昵称');//获取用户名
+    if (!userName) {
+        userName = '访客' + new Date().getTime()
+    }
+    document.getElementById("headName").innerHTML += userName
+
+    if (typeof (WebSocket) == 'undefined') {
+        console.error("您的浏览器不支持WebSocket")
+    } else {
+        console.log("您的浏览器支持webSocket")
+        let serverIp = document.getElementById('serverIp').innerText
+        let socketURL = `ws://${serverIp}:80/chat-server/` + userName
+        //开启WebSocket服务
+        socket = new WebSocket(socketURL)
+
+        //注册事件
+        //建立连接
+        socket.onopen = () => {
+            console.log('webSocket连接已经建立!')
+        }
+        //接收到消息
+        socket.onmessage = (msg) => {
+            console.log("收到消息,msg->", msg)
+            let data = JSON.parse(msg.data)
+            if (data.users) {
+                //获取并重新渲染在线人员列表
+                let onlinePeopleDOM = document.getElementById('onlinePeoples');
+                onlinePeopleDOM.innerHTML = ''
+                data.users.filter(user => user.username !== userName).forEach(user => {
+                    console.log(user)
+                    onlinePeopleDOM.innerHTML += `
+                        <span class="onlinePeople"  >
+                                姓名：${user.username}
+                        </span><button onclick="changeChat('${user.username}')">与他一起聊天</button>
+                         <br>`
+                })
+            } else {
+                if (data.from === currentChatPartner) {
+                    document.getElementById('chat-container').innerHTML += `
+                    <div class="other-person">
+                    <p>${data.from}：</p>
+                    <p>${data.text}</p>
+                </div>`
+                }else{
+                    alert(`你收到一条来自用户${data.from}的信息：${data.text}`)
+                }
+            }
+        }
+    }
+
+    function changeChat(name) {
+        console.log(name)
+        currentChatPartner = name
+        document.getElementById('currentChat').innerHTML = currentChatPartner
+        document.getElementById('chat-container').innerHTML = ''
+    }
+
+    function sendMessage() {
+        if (!currentChatPartner){
+            alert('请选择一个聊天人才能发送信息!!!')
+            return
+        }
+        let text = document.getElementById('message-input').value;
+        console.log(text)
+        socket.send(JSON.stringify({
+            to: currentChatPartner,
+            text:text
+        }))
+        document.getElementById('chat-container').innerHTML+=`
+        <div class="self">
+                <p>我的发言内容</p>
+                <p>${text}</p>
+            </div>`
+    }
+</script>
+<style>
+    #container {
+        height: 90vh;
+    //width: 100vw; display: grid;
+        grid-template-columns: 1fr 3fr
+    }
+
+    #onlinePeoples {
+        background-color: aquamarine;
+    }
+
+    #chatDiv {
+    //background-color: red
+    }
+
+    /* 样式可以根据需要进行调整 */
+    #chat-container {
+        min-height: 50%;
+        border: 1px solid #ccc;
+        padding: 10px;
+        max-width: 100%;
+        margin: 20px auto;
+        overflow-y: scroll;
+        max-height: 60%; /* 超过高度时出现滚动条 */
+    }
+
+    .other-person {
+        background-color: #f2f2f2;
+        padding: 8px;
+        margin-bottom: 8px;
+        border-radius: 8px;
+    }
+
+    .self {
+        background-color: #e6f7ff;
+        padding: 8px;
+        margin-bottom: 8px;
+        border-radius: 8px;
+        text-align: right;
+    }
+
+    #message-input {
+        width: 100%;
+        height: 100px; /* 控制文本框的高度 */
+        padding: 8px;
+        box-sizing: border-box;
+    }
+</style>
+</html>
+<script>
+</script>
